@@ -93,22 +93,22 @@ const statusSeverity = computed(() => {
             </div>
           </div>
 
-          <div class="grid mt-4">
-            <div class="col-6 md:col-3">
-              <span class="text-color-secondary">Ready</span>
-              <p class="font-semibold">{{ pod.ready }}</p>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="label">Ready</span>
+              <span class="value">{{ pod.ready }}</span>
             </div>
-            <div class="col-6 md:col-3">
-              <span class="text-color-secondary">Restarts</span>
-              <p class="font-semibold">{{ pod.restarts }}</p>
+            <div class="info-item">
+              <span class="label">Restarts</span>
+              <span class="value">{{ pod.restarts }}</span>
             </div>
-            <div class="col-6 md:col-3">
-              <span class="text-color-secondary">Age</span>
-              <p class="font-semibold">{{ pod.age }}</p>
+            <div class="info-item">
+              <span class="label">Age</span>
+              <span class="value">{{ pod.age }}</span>
             </div>
-            <div class="col-6 md:col-3">
-              <span class="text-color-secondary">IP</span>
-              <p class="font-semibold">{{ pod.ip || '-' }}</p>
+            <div class="info-item">
+              <span class="label">IP</span>
+              <span class="value">{{ pod.ip || '-' }}</span>
             </div>
           </div>
         </template>
@@ -190,20 +190,73 @@ const statusSeverity = computed(() => {
 </template>
 
 <style scoped>
+.pod-detail {
+  max-width: 1400px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-item .label {
+  color: var(--text-color-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.info-item .value {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.containers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.logs-toolbar {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .terminal-container {
-  background: #1e1e1e;
-  border-radius: 8px;
-  padding: 1rem;
+  background: #0d1117;
+  border-radius: 12px;
+  padding: 1.25rem;
   font-family: 'Fira Code', 'Consolas', monospace;
-  font-size: 0.85rem;
-  height: 400px;
+  font-size: 0.9rem;
+  min-height: 450px;
+  max-height: 600px;
   overflow: auto;
+  line-height: 1.6;
 }
 
 .terminal-container pre {
   margin: 0;
   white-space: pre-wrap;
-  word-break: break-all;
-  color: #d4d4d4;
+  word-break: break-word;
+  color: #c9d1d9;
 }
 </style>

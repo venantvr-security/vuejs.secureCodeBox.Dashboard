@@ -48,8 +48,14 @@ const displayedPods = computed(() => {
 <style scoped>
 .pods-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .pods-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .empty-state {
@@ -57,6 +63,7 @@ const displayedPods = computed(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 3rem;
+  padding: 4rem 2rem;
+  text-align: center;
 }
 </style>

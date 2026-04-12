@@ -55,46 +55,46 @@ const typeSeverity = (type: string) => type === 'Warning' ? 'warning' : 'info'
     </Toolbar>
 
     <!-- Stats -->
-    <div class="grid mb-4">
-      <div class="col-4">
-        <Card>
-          <template #content>
-            <div class="flex align-items-center">
-              <i class="pi pi-list text-2xl text-primary mr-3"></i>
-              <div>
-                <div class="text-2xl font-bold">{{ eventsStore.events.length }}</div>
-                <div class="text-color-secondary">Total</div>
-              </div>
+    <div class="events-stats-grid mb-4">
+      <Card class="stat-card-item">
+        <template #content>
+          <div class="flex align-items-center gap-4">
+            <div class="stat-icon stat-icon-primary">
+              <i class="pi pi-list"></i>
             </div>
-          </template>
-        </Card>
-      </div>
-      <div class="col-4">
-        <Card>
-          <template #content>
-            <div class="flex align-items-center">
-              <i class="pi pi-info-circle text-2xl text-blue-500 mr-3"></i>
-              <div>
-                <div class="text-2xl font-bold">{{ eventsStore.normalEvents.length }}</div>
-                <div class="text-color-secondary">Normal</div>
-              </div>
+            <div>
+              <div class="stat-number">{{ eventsStore.events.length }}</div>
+              <div class="stat-label">Total</div>
             </div>
-          </template>
-        </Card>
-      </div>
-      <div class="col-4">
-        <Card>
-          <template #content>
-            <div class="flex align-items-center">
-              <i class="pi pi-exclamation-triangle text-2xl text-yellow-500 mr-3"></i>
-              <div>
-                <div class="text-2xl font-bold">{{ eventsStore.warningEvents.length }}</div>
-                <div class="text-color-secondary">Warning</div>
-              </div>
+          </div>
+        </template>
+      </Card>
+      <Card class="stat-card-item">
+        <template #content>
+          <div class="flex align-items-center gap-4">
+            <div class="stat-icon stat-icon-blue">
+              <i class="pi pi-info-circle"></i>
             </div>
-          </template>
-        </Card>
-      </div>
+            <div>
+              <div class="stat-number">{{ eventsStore.normalEvents.length }}</div>
+              <div class="stat-label">Normal</div>
+            </div>
+          </div>
+        </template>
+      </Card>
+      <Card class="stat-card-item">
+        <template #content>
+          <div class="flex align-items-center gap-4">
+            <div class="stat-icon" style="background: rgba(234, 179, 8, 0.15); color: #eab308;">
+              <i class="pi pi-exclamation-triangle"></i>
+            </div>
+            <div>
+              <div class="stat-number">{{ eventsStore.warningEvents.length }}</div>
+              <div class="stat-label">Warning</div>
+            </div>
+          </div>
+        </template>
+      </Card>
     </div>
 
     <!-- Table -->
@@ -109,24 +109,24 @@ const typeSeverity = (type: string) => type === 'Warning' ? 'warning' : 'info'
           :rowsPerPageOptions="[10, 20, 50, 100]"
           emptyMessage="Aucun événement"
         >
-          <Column field="time" header="Time" style="width: 100px">
+          <Column field="time" header="Time" style="min-width: 110px">
             <template #body="{ data }">
-              <span class="font-mono text-sm">{{ data.time }}</span>
+              <span class="font-mono">{{ data.time }}</span>
             </template>
           </Column>
-          <Column field="type" header="Type" style="width: 100px">
+          <Column field="type" header="Type" style="min-width: 110px">
             <template #body="{ data }">
-              <Tag :value="data.type" :severity="typeSeverity(data.type)" size="small" />
+              <Tag :value="data.type" :severity="typeSeverity(data.type)" />
             </template>
           </Column>
-          <Column field="reason" header="Reason" style="width: 120px">
+          <Column field="reason" header="Reason" style="min-width: 140px">
             <template #body="{ data }">
               <span class="font-semibold">{{ data.reason }}</span>
             </template>
           </Column>
-          <Column field="object" header="Object" style="width: 250px">
+          <Column field="object" header="Object" style="min-width: 280px">
             <template #body="{ data }">
-              <code class="text-sm surface-ground px-2 py-1 border-round">{{ data.object }}</code>
+              <code class="object-code">{{ data.object }}</code>
             </template>
           </Column>
           <Column field="message" header="Message">
@@ -134,7 +134,7 @@ const typeSeverity = (type: string) => type === 'Warning' ? 'warning' : 'info'
               <span class="text-color-secondary">{{ data.message }}</span>
             </template>
           </Column>
-          <Column field="count" header="Count" style="width: 80px">
+          <Column field="count" header="Count" style="min-width: 90px">
             <template #body="{ data }">
               <Badge :value="data.count" severity="secondary" />
             </template>
@@ -146,7 +146,30 @@ const typeSeverity = (type: string) => type === 'Warning' ? 'warning' : 'info'
 </template>
 
 <style scoped>
+.events-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .events-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .font-mono {
   font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+}
+
+.object-code {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  background: var(--surface-ground);
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  display: inline-block;
+  word-break: break-word;
 }
 </style>

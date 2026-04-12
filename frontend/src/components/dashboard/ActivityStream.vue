@@ -36,7 +36,7 @@ const typeIcon = (type: string) => {
 <template>
   <Card class="activity-card">
     <template #content>
-      <ScrollPanel style="height: 250px">
+      <ScrollPanel style="height: 300px">
         <div
           v-for="(activity, index) in activities"
           :key="index"
@@ -64,9 +64,14 @@ const typeIcon = (type: string) => {
 .activity-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: 1rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--surface-border);
+  transition: background 0.15s ease;
+}
+
+.activity-item:hover {
+  background: var(--surface-hover);
 }
 
 .activity-item:last-child {
@@ -75,14 +80,16 @@ const typeIcon = (type: string) => {
 
 .activity-time {
   font-family: 'Fira Code', 'Consolas', monospace;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-color-secondary);
-  min-width: 70px;
+  min-width: 80px;
+  flex-shrink: 0;
 }
 
 .activity-message {
   flex: 1;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   word-break: break-word;
+  line-height: 1.4;
 }
 </style>

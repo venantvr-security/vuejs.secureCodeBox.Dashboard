@@ -15,8 +15,8 @@ defineProps<{
     <div class="stat-card">
       <Knob
         :modelValue="stats.total > 0 ? Math.round((stats.running / stats.total) * 100) : 0"
-        :size="80"
-        :strokeWidth="8"
+        :size="100"
+        :strokeWidth="10"
         valueColor="#22c55e"
         rangeColor="var(--surface-border)"
         readonly
@@ -29,8 +29,8 @@ defineProps<{
     <div class="stat-card">
       <Knob
         :modelValue="stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0"
-        :size="80"
-        :strokeWidth="8"
+        :size="100"
+        :strokeWidth="10"
         valueColor="#6b7280"
         rangeColor="var(--surface-border)"
         readonly
@@ -43,8 +43,8 @@ defineProps<{
     <div class="stat-card">
       <Knob
         :modelValue="stats.total > 0 ? Math.round((stats.failed / stats.total) * 100) : 0"
-        :size="80"
-        :strokeWidth="8"
+        :size="100"
+        :strokeWidth="10"
         valueColor="#ef4444"
         rangeColor="var(--surface-border)"
         readonly
@@ -57,8 +57,8 @@ defineProps<{
     <div class="stat-card">
       <Knob
         :modelValue="100"
-        :size="80"
-        :strokeWidth="8"
+        :size="100"
+        :strokeWidth="10"
         valueColor="var(--primary-color)"
         rangeColor="var(--surface-border)"
         readonly
@@ -72,7 +72,24 @@ defineProps<{
 <style scoped>
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 1000px) {
+  .overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+.stat-card {
+  padding: 1.5rem;
 }
 </style>

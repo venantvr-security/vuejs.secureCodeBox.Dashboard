@@ -68,21 +68,33 @@ onUnmounted(() => {
 <style scoped>
 .stats-bar {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
+}
+
+.stats-bar :deep(.p-tag) {
+  padding: 0.6rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .pods-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .pods-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4rem;
+  padding: 4rem 2rem;
   text-align: center;
 }
 </style>

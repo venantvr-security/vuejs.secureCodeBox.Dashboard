@@ -121,59 +121,59 @@ async function handleCreateScan() {
     </Toolbar>
 
     <!-- Stats -->
-    <div class="grid mb-4">
-      <div class="col-3">
-        <Card>
-          <template #content>
-            <div class="flex align-items-center">
-              <i class="pi pi-list text-2xl text-primary mr-3"></i>
-              <div>
-                <div class="text-2xl font-bold">{{ scansStore.scans.length }}</div>
-                <div class="text-color-secondary">Total</div>
-              </div>
+    <div class="stats-grid mb-4">
+      <Card class="stat-card-item">
+        <template #content>
+          <div class="flex align-items-center gap-4">
+            <div class="stat-icon stat-icon-primary">
+              <i class="pi pi-list"></i>
             </div>
-          </template>
-        </Card>
-      </div>
-      <div class="col-3">
-        <Card>
-          <template #content>
-            <div class="flex align-items-center">
-              <i class="pi pi-spin pi-spinner text-2xl text-blue-500 mr-3"></i>
-              <div>
-                <div class="text-2xl font-bold">{{ scansStore.runningScans.length }}</div>
-                <div class="text-color-secondary">En cours</div>
-              </div>
+            <div>
+              <div class="stat-number">{{ scansStore.scans.length }}</div>
+              <div class="stat-label">Total</div>
             </div>
-          </template>
-        </Card>
-      </div>
-      <div class="col-3">
-        <Card>
-          <template #content>
-            <div class="flex align-items-center">
-              <i class="pi pi-check-circle text-2xl text-green-500 mr-3"></i>
-              <div>
-                <div class="text-2xl font-bold">{{ scansStore.completedScans.length }}</div>
-                <div class="text-color-secondary">Terminés</div>
-              </div>
+          </div>
+        </template>
+      </Card>
+      <Card class="stat-card-item">
+        <template #content>
+          <div class="flex align-items-center gap-4">
+            <div class="stat-icon stat-icon-blue">
+              <i class="pi pi-spin pi-spinner"></i>
             </div>
-          </template>
-        </Card>
-      </div>
-      <div class="col-3">
-        <Card>
-          <template #content>
-            <div class="flex align-items-center">
-              <i class="pi pi-times-circle text-2xl text-red-500 mr-3"></i>
-              <div>
-                <div class="text-2xl font-bold">{{ scansStore.failedScans.length }}</div>
-                <div class="text-color-secondary">Échoués</div>
-              </div>
+            <div>
+              <div class="stat-number">{{ scansStore.runningScans.length }}</div>
+              <div class="stat-label">En cours</div>
             </div>
-          </template>
-        </Card>
-      </div>
+          </div>
+        </template>
+      </Card>
+      <Card class="stat-card-item">
+        <template #content>
+          <div class="flex align-items-center gap-4">
+            <div class="stat-icon stat-icon-green">
+              <i class="pi pi-check-circle"></i>
+            </div>
+            <div>
+              <div class="stat-number">{{ scansStore.completedScans.length }}</div>
+              <div class="stat-label">Terminés</div>
+            </div>
+          </div>
+        </template>
+      </Card>
+      <Card class="stat-card-item">
+        <template #content>
+          <div class="flex align-items-center gap-4">
+            <div class="stat-icon stat-icon-red">
+              <i class="pi pi-times-circle"></i>
+            </div>
+            <div>
+              <div class="stat-number">{{ scansStore.failedScans.length }}</div>
+              <div class="stat-label">Échoués</div>
+            </div>
+          </div>
+        </template>
+      </Card>
     </div>
 
     <!-- Table -->
@@ -195,20 +195,20 @@ async function handleCreateScan() {
               </router-link>
             </template>
           </Column>
-          <Column field="status" header="Status" sortable style="width: 120px">
+          <Column field="status" header="Status" sortable style="min-width: 130px">
             <template #body="{ data }">
               <Tag :value="data.status" :severity="statusSeverity(data.status)" />
             </template>
           </Column>
-          <Column field="scanType" header="Type" sortable style="width: 120px" />
-          <Column field="findings" header="Findings" sortable style="width: 100px">
+          <Column field="scanType" header="Type" sortable style="min-width: 120px" />
+          <Column field="findings" header="Findings" sortable style="min-width: 120px">
             <template #body="{ data }">
               <Badge :value="data.findings" :severity="data.findings > 0 ? 'warning' : 'secondary'" />
             </template>
           </Column>
-          <Column field="startTime" header="Démarré" style="width: 100px" />
-          <Column field="duration" header="Durée" style="width: 100px" />
-          <Column header="Actions" style="width: 150px">
+          <Column field="startTime" header="Démarré" style="min-width: 140px" />
+          <Column field="duration" header="Durée" style="min-width: 100px" />
+          <Column header="Actions" style="min-width: 160px">
             <template #body="{ data }">
               <Button
                 icon="pi pi-eye"
