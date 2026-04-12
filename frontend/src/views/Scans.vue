@@ -18,10 +18,13 @@ const newScan = ref({
   enumerate: 'p'
 })
 
+const showHistory = ref(false)
+
 onMounted(() => {
   scansStore.fetchScans()
   scansStore.fetchScanTypes()
   scansStore.fetchTemplates()
+  scansStore.fetchHistory()
   scansStore.connectWebSocket()
 })
 
@@ -181,6 +184,36 @@ function formatDate(isoString: string): string {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// ============================================================================
+// HISTORY
+// ============================================================================
+
+async function handleDeleteHistoryEntry(id: string) {
+  const success = await scansStore.deleteHistoryEntry(id)
+  if (success) {
+    toast.add({
+      severity: 'success',
+      summary: 'Entrée supprimée',
+      detail: 'Entrée supprimée de l\'historique',
+      life: 2000
+    })
+  }
+}
+
+async function handleClearHistory() {
+  if (confirm('Vider tout l\'historique des scans ?')) {
+    const success = await scansStore.clearHistory()
+    if (success) {
+      toast.add({
+        severity: 'success',
+        summary: 'Historique vidé',
+        detail: 'L\'historique a été effacé',
+        life: 2000
+      })
+    }
+  }
 }
 </script>
 
@@ -409,6 +442,95 @@ function formatDate(isoString: string): string {
             </template>
           </Column>
         </DataTable>
+      </template>
+    </Card>
+
+    <!-- History Section -->
+    <Card class="mt-4">
+      <template #title>
+        <div class="flex align-items-center justify-content-between">
+          <span class="cursor-pointer" @click="showHistory = !showHistory">
+            <i :class="['pi mr-2', showHistory ? 'pi-chevron-down' : 'pi-chevron-right']"></i>
+            <i class="pi pi-history mr-2"></i>
+            Historique des scans ({{ scansStore.history.length }})
+          </span>
+          <div class="flex gap-2">
+            <Button
+              icon="pi pi-refresh"
+              text
+              rounded
+              size="small"
+              @click="scansStore.fetchHistory"
+              :loading="scansStore.historyLoading"
+              v-tooltip.top="'Rafraîchir'"
+            />
+            <Button
+              v-if="scansStore.history.length > 0"
+              icon="pi pi-trash"
+              text
+              rounded
+              size="small"
+              severity="danger"
+              @click="handleClearHistory"
+              v-tooltip.top="'Vider l\'historique'"
+            />
+          </div>
+        </div>
+      </template>
+      <template #content>
+        <div v-show="showHistory">
+          <div v-if="scansStore.history.length === 0" class="text-center text-color-secondary py-4">
+            <i class="pi pi-inbox text-4xl mb-3" style="display: block;"></i>
+            <p>Aucun historique</p>
+            <p class="text-sm">Les scans terminés seront automatiquement archivés ici</p>
+          </div>
+          <DataTable
+            v-else
+            :value="scansStore.history"
+            :loading="scansStore.historyLoading"
+            stripedRows
+            paginator
+            :rows="5"
+            :rowsPerPageOptions="[5, 10, 20]"
+            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
+          >
+            <Column field="name" header="Nom" sortable />
+            <Column field="scanType" header="Type" sortable style="min-width: 100px" />
+            <Column field="target" header="Cible" style="min-width: 200px">
+              <template #body="{ data }">
+                <span class="text-sm">{{ data.target || '-' }}</span>
+              </template>
+            </Column>
+            <Column field="status" header="Status" sortable style="min-width: 100px">
+              <template #body="{ data }">
+                <Tag :value="data.status" :severity="statusSeverity(data.status)" />
+              </template>
+            </Column>
+            <Column field="findings" header="Findings" sortable style="min-width: 80px">
+              <template #body="{ data }">
+                <Badge :value="data.findings" :severity="data.findings > 0 ? 'warning' : 'secondary'" />
+              </template>
+            </Column>
+            <Column field="archivedAt" header="Archivé" sortable style="min-width: 140px">
+              <template #body="{ data }">
+                {{ formatDate(data.archivedAt) }}
+              </template>
+            </Column>
+            <Column header="" style="min-width: 60px">
+              <template #body="{ data }">
+                <Button
+                  icon="pi pi-times"
+                  text
+                  rounded
+                  size="small"
+                  severity="secondary"
+                  @click="handleDeleteHistoryEntry(data.id)"
+                  v-tooltip.top="'Supprimer'"
+                />
+              </template>
+            </Column>
+          </DataTable>
+        </div>
       </template>
     </Card>
 

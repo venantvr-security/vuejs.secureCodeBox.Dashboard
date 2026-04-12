@@ -6,7 +6,7 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { listPods, getPod, getPodMetrics, getAllPodMetrics, getPodLogs, deletePod } from './kubernetes/pods';
-import { listScans, getScan, createScan, deleteScan, listScanTypes } from './kubernetes/scans';
+import { listScans, getScan, createScan, deleteScan, listScanTypes, ScanInfo } from './kubernetes/scans';
 import { listEvents } from './kubernetes/events';
 import { runDiagnostic, getNetworkInfo } from './system/diagnostic';
 import { NAMESPACE, reconnectCluster } from './kubernetes/client';
@@ -17,9 +17,93 @@ const PORT = process.env.PORT || 8080;
 // Répertoire des templates de scan (dans le projet dashboard)
 const SCAN_TEMPLATES_DIR = path.join(__dirname, '..', 'scan-templates');
 
-// Créer le répertoire s'il n'existe pas
+// Répertoire de stockage de l'historique des scans
+const DATA_DIR = path.join(__dirname, '..', 'data');
+const SCAN_HISTORY_FILE = path.join(DATA_DIR, 'scan-history.json');
+
+// Créer les répertoires s'ils n'existent pas
 if (!fs.existsSync(SCAN_TEMPLATES_DIR)) {
   fs.mkdirSync(SCAN_TEMPLATES_DIR, { recursive: true });
+}
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// ============================================================================
+// SCAN HISTORY - Mémoire persistante des scans
+// ============================================================================
+
+interface ScanHistoryEntry {
+  id: string;
+  name: string;
+  scanType: string;
+  target: string;
+  status: string;
+  findings: number;
+  findingsBySeverity?: { high?: number; medium?: number; low?: number; info?: number };
+  startTime: string;
+  finishedTime?: string;
+  duration?: string;
+  archivedAt: string;
+}
+
+function loadScanHistory(): ScanHistoryEntry[] {
+  try {
+    if (fs.existsSync(SCAN_HISTORY_FILE)) {
+      return JSON.parse(fs.readFileSync(SCAN_HISTORY_FILE, 'utf-8'));
+    }
+  } catch (e) {
+    console.error('[History] Error loading scan history:', e);
+  }
+  return [];
+}
+
+function saveScanHistory(history: ScanHistoryEntry[]): void {
+  try {
+    fs.writeFileSync(SCAN_HISTORY_FILE, JSON.stringify(history, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('[History] Error saving scan history:', e);
+  }
+}
+
+function archiveScan(scan: ScanInfo): void {
+  const history = loadScanHistory();
+
+  // Éviter les doublons (même nom + même startTime)
+  const exists = history.some(h => h.name === scan.name && h.startTime === scan.startTime);
+  if (exists) return;
+
+  // Extraire la cible des paramètres
+  let target = '';
+  if (scan.parameters) {
+    const urlIdx = scan.parameters.indexOf('--url');
+    if (urlIdx !== -1 && scan.parameters[urlIdx + 1]) {
+      target = scan.parameters[urlIdx + 1];
+    }
+  }
+
+  const entry: ScanHistoryEntry = {
+    id: `${scan.name}-${Date.now()}`,
+    name: scan.name,
+    scanType: scan.scanType,
+    target,
+    status: scan.status,
+    findings: scan.findings || 0,
+    startTime: scan.startTime,
+    finishedTime: scan.finishedTime,
+    duration: scan.duration,
+    archivedAt: new Date().toISOString()
+  };
+
+  history.unshift(entry); // Ajouter au début
+
+  // Limiter à 100 entrées
+  if (history.length > 100) {
+    history.splice(100);
+  }
+
+  saveScanHistory(history);
+  console.log(`[History] Scan archived: ${scan.name}`);
 }
 
 // Middleware
@@ -167,6 +251,14 @@ app.get('/api/scans', async (req, res) => {
   try {
     const namespace = (req.query.namespace as string) || NAMESPACE;
     const scans = await listScans(namespace);
+
+    // Auto-archiver les scans terminés (Done, Completed, Errored)
+    for (const scan of scans) {
+      if (['Done', 'Completed', 'Errored'].includes(scan.status)) {
+        archiveScan(scan);
+      }
+    }
+
     res.json(scans);
   } catch (error) {
     console.error('[API] Error listing scans:', error);
@@ -429,6 +521,72 @@ app.delete('/api/scan-templates/:name', (req, res) => {
   } catch (error) {
     console.error('[API] Error deleting scan template:', error);
     res.status(500).json({ error: 'Failed to delete scan template' });
+  }
+});
+
+// ============================================================================
+// REST API - SCAN HISTORY (mémoire persistante)
+// ============================================================================
+
+// Lister l'historique des scans
+app.get('/api/scan-history', (req, res) => {
+  try {
+    const history = loadScanHistory();
+    const limit = parseInt(req.query.limit as string) || 50;
+    res.json(history.slice(0, limit));
+  } catch (error) {
+    console.error('[API] Error listing scan history:', error);
+    res.status(500).json({ error: 'Failed to list scan history' });
+  }
+});
+
+// Archiver un scan manuellement (ou automatiquement quand terminé)
+app.post('/api/scan-history', async (req, res) => {
+  try {
+    const { scanName } = req.body;
+    if (scanName) {
+      // Récupérer le scan depuis K8s et l'archiver
+      const scan = await getScan(scanName, NAMESPACE);
+      if (scan) {
+        archiveScan(scan);
+        res.json({ success: true, message: `Scan ${scanName} archived` });
+      } else {
+        res.status(404).json({ error: 'Scan not found' });
+      }
+    } else {
+      res.status(400).json({ error: 'scanName is required' });
+    }
+  } catch (error) {
+    console.error('[API] Error archiving scan:', error);
+    res.status(500).json({ error: 'Failed to archive scan' });
+  }
+});
+
+// Supprimer une entrée de l'historique
+app.delete('/api/scan-history/:id', (req, res) => {
+  try {
+    const history = loadScanHistory();
+    const filtered = history.filter(h => h.id !== req.params.id);
+    if (filtered.length === history.length) {
+      res.status(404).json({ error: 'History entry not found' });
+      return;
+    }
+    saveScanHistory(filtered);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Error deleting history entry:', error);
+    res.status(500).json({ error: 'Failed to delete history entry' });
+  }
+});
+
+// Vider l'historique
+app.delete('/api/scan-history', (_req, res) => {
+  try {
+    saveScanHistory([]);
+    res.json({ success: true, message: 'History cleared' });
+  } catch (error) {
+    console.error('[API] Error clearing history:', error);
+    res.status(500).json({ error: 'Failed to clear history' });
   }
 });
 

@@ -21,6 +21,19 @@ export interface ScanTemplate {
   content: string
 }
 
+export interface ScanHistoryEntry {
+  id: string
+  name: string
+  scanType: string
+  target: string
+  status: string
+  findings: number
+  startTime: string
+  finishedTime?: string
+  duration?: string
+  archivedAt: string
+}
+
 const API_BASE = import.meta.env.VITE_API_URL || ''
 const WS_BASE = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:8080`
 
@@ -28,8 +41,10 @@ export const useScansStore = defineStore('scans', () => {
   const scans = ref<ScanInfo[]>([])
   const scanTypes = ref<string[]>([])
   const templates = ref<ScanTemplate[]>([])
+  const history = ref<ScanHistoryEntry[]>([])
   const loading = ref(false)
   const templatesLoading = ref(false)
+  const historyLoading = ref(false)
   const error = ref<string | null>(null)
   let ws: WebSocket | null = null
 
@@ -229,13 +244,60 @@ export const useScansStore = defineStore('scans', () => {
     }
   }
 
+  // ============================================================================
+  // HISTORY - Mémoire des scans
+  // ============================================================================
+
+  async function fetchHistory(limit = 50) {
+    historyLoading.value = true
+    try {
+      const response = await fetch(`${API_BASE}/api/scan-history?limit=${limit}`)
+      if (!response.ok) throw new Error('Failed to fetch history')
+      history.value = await response.json()
+    } catch (e) {
+      console.error('[ScansStore] Error fetching history:', e)
+    } finally {
+      historyLoading.value = false
+    }
+  }
+
+  async function deleteHistoryEntry(id: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE}/api/scan-history/${id}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) throw new Error('Failed to delete history entry')
+      history.value = history.value.filter(h => h.id !== id)
+      return true
+    } catch (e) {
+      console.error('[ScansStore] Error deleting history entry:', e)
+      return false
+    }
+  }
+
+  async function clearHistory(): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE}/api/scan-history`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) throw new Error('Failed to clear history')
+      history.value = []
+      return true
+    } catch (e) {
+      console.error('[ScansStore] Error clearing history:', e)
+      return false
+    }
+  }
+
   return {
     // State
     scans,
     scanTypes,
     templates,
+    history,
     loading,
     templatesLoading,
+    historyLoading,
     error,
     // Getters
     runningScans,
@@ -254,6 +316,10 @@ export const useScansStore = defineStore('scans', () => {
     fetchTemplates,
     uploadTemplate,
     applyTemplate,
-    deleteTemplate
+    deleteTemplate,
+    // Actions - History
+    fetchHistory,
+    deleteHistoryEntry,
+    clearHistory
   }
 })
