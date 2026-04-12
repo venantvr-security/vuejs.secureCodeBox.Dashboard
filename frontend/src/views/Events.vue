@@ -107,6 +107,7 @@ const typeSeverity = (type: string) => type === 'Warning' ? 'warning' : 'info'
           paginator
           :rows="20"
           :rowsPerPageOptions="[10, 20, 50, 100]"
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
           emptyMessage="Aucun événement"
         >
           <Column field="time" header="Time" style="min-width: 110px">

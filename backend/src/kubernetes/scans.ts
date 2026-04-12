@@ -36,6 +36,9 @@ export interface ScanInfo {
   findingsDownloadLink?: string;
 }
 
+const GROUP = 'execution.securecodebox.io';
+const VERSION = 'v1';
+
 function formatDuration(startTime: Date, endTime?: Date): string {
   const end = endTime || new Date();
   const diff = Math.floor((end.getTime() - startTime.getTime()) / 1000);
@@ -47,14 +50,14 @@ function formatDuration(startTime: Date, endTime?: Date): string {
 
 export async function listScans(namespace: string = NAMESPACE): Promise<ScanInfo[]> {
   try {
-    const response = await customApi.listNamespacedCustomObject(
-      'execution.securecodebox.io',
-      'v1',
+    const response = await customApi.listNamespacedCustomObject({
+      group: GROUP,
+      version: VERSION,
       namespace,
-      'scans'
-    );
+      plural: 'scans'
+    });
 
-    const items = (response.body as any).items || [];
+    const items = (response as any).items || [];
 
     return items.map((item: any) => {
       const startTime = item.metadata?.creationTimestamp ? new Date(item.metadata.creationTimestamp) : new Date();
@@ -71,7 +74,7 @@ export async function listScans(namespace: string = NAMESPACE): Promise<ScanInfo
         finishedTime: finishedTime?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
         duration: formatDuration(startTime, finishedTime),
         rawResultDownloadLink: item.status?.rawResultDownloadLink,
-        findingsDownloadLink: item.status?.findingsDownloadLink
+        findingsDownloadLink: item.status?.findingDownloadLink
       };
     });
   } catch (error) {
@@ -82,15 +85,15 @@ export async function listScans(namespace: string = NAMESPACE): Promise<ScanInfo
 
 export async function getScan(name: string, namespace: string = NAMESPACE): Promise<ScanInfo | null> {
   try {
-    const response = await customApi.getNamespacedCustomObject(
-      'execution.securecodebox.io',
-      'v1',
+    const response = await customApi.getNamespacedCustomObject({
+      group: GROUP,
+      version: VERSION,
       namespace,
-      'scans',
+      plural: 'scans',
       name
-    );
+    });
 
-    const item = response.body as any;
+    const item = response as any;
     const startTime = item.metadata?.creationTimestamp ? new Date(item.metadata.creationTimestamp) : new Date();
     const finishedTime = item.status?.finishedAt ? new Date(item.status.finishedAt) : undefined;
 
@@ -105,7 +108,7 @@ export async function getScan(name: string, namespace: string = NAMESPACE): Prom
       finishedTime: finishedTime?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
       duration: formatDuration(startTime, finishedTime),
       rawResultDownloadLink: item.status?.rawResultDownloadLink,
-      findingsDownloadLink: item.status?.findingsDownloadLink
+      findingsDownloadLink: item.status?.findingDownloadLink
     };
   } catch (error) {
     console.error('[K8s] Error getting scan:', error);
@@ -121,7 +124,7 @@ export async function createScan(
 ): Promise<boolean> {
   try {
     const scan = {
-      apiVersion: 'execution.securecodebox.io/v1',
+      apiVersion: `${GROUP}/v1`,
       kind: 'Scan',
       metadata: {
         name,
@@ -133,13 +136,13 @@ export async function createScan(
       }
     };
 
-    await customApi.createNamespacedCustomObject(
-      'execution.securecodebox.io',
-      'v1',
+    await customApi.createNamespacedCustomObject({
+      group: GROUP,
+      version: VERSION,
       namespace,
-      'scans',
-      scan
-    );
+      plural: 'scans',
+      body: scan
+    });
 
     return true;
   } catch (error) {
@@ -150,13 +153,13 @@ export async function createScan(
 
 export async function deleteScan(name: string, namespace: string = NAMESPACE): Promise<boolean> {
   try {
-    await customApi.deleteNamespacedCustomObject(
-      'execution.securecodebox.io',
-      'v1',
+    await customApi.deleteNamespacedCustomObject({
+      group: GROUP,
+      version: VERSION,
       namespace,
-      'scans',
+      plural: 'scans',
       name
-    );
+    });
     return true;
   } catch (error) {
     console.error('[K8s] Error deleting scan:', error);
@@ -166,14 +169,14 @@ export async function deleteScan(name: string, namespace: string = NAMESPACE): P
 
 export async function listScanTypes(namespace: string = NAMESPACE): Promise<string[]> {
   try {
-    const response = await customApi.listNamespacedCustomObject(
-      'execution.securecodebox.io',
-      'v1',
+    const response = await customApi.listNamespacedCustomObject({
+      group: GROUP,
+      version: VERSION,
       namespace,
-      'scantypes'
-    );
+      plural: 'scantypes'
+    });
 
-    const items = (response.body as any).items || [];
+    const items = (response as any).items || [];
     return items.map((item: any) => item.metadata?.name || 'unknown');
   } catch (error) {
     console.error('[K8s] Error listing scan types:', error);

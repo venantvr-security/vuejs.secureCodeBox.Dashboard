@@ -13,11 +13,11 @@ export interface K8sEvent {
 
 export async function listEvents(namespace: string = NAMESPACE, limit: number = 50): Promise<K8sEvent[]> {
   try {
-    const response = await coreApi.listNamespacedEvent(namespace);
-    const items = response.body.items || [];
+    const response = await coreApi.listNamespacedEvent({ namespace });
+    const items = (response as any).items || (response as any).body?.items || [];
 
     // Trier par timestamp décroissant
-    const sortedItems = items.sort((a, b) => {
+    const sortedItems = items.sort((a: any, b: any) => {
       const timeA = a.lastTimestamp ? new Date(a.lastTimestamp).getTime() : 0;
       const timeB = b.lastTimestamp ? new Date(b.lastTimestamp).getTime() : 0;
       return timeB - timeA;
@@ -26,7 +26,7 @@ export async function listEvents(namespace: string = NAMESPACE, limit: number = 
     // Limiter le nombre de résultats
     const limitedItems = sortedItems.slice(0, limit);
 
-    return limitedItems.map(event => {
+    return limitedItems.map((event: any) => {
       const timestamp = event.lastTimestamp
         ? new Date(event.lastTimestamp)
         : event.eventTime

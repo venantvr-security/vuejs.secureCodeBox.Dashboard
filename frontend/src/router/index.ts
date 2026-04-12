@@ -24,6 +24,11 @@ const router = createRouter({
       component: () => import('@/views/Scans.vue')
     },
     {
+      path: '/scans/:name',
+      name: 'scan-detail',
+      component: () => import('@/views/ScanDetail.vue')
+    },
+    {
       path: '/events',
       name: 'events',
       component: () => import('@/views/Events.vue')

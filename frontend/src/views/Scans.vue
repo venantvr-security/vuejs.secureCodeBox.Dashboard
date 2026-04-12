@@ -186,6 +186,7 @@ async function handleCreateScan() {
           paginator
           :rows="10"
           :rowsPerPageOptions="[5, 10, 20, 50]"
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
           emptyMessage="Aucun scan trouvé"
         >
           <Column field="name" header="Nom" sortable>

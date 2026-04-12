@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
+import { exec } from 'child_process';
 import { listPods, getPod, getPodMetrics, getAllPodMetrics, getPodLogs, deletePod } from './kubernetes/pods';
 import { listScans, getScan, createScan, deleteScan, listScanTypes } from './kubernetes/scans';
 import { listEvents } from './kubernetes/events';
@@ -212,6 +213,62 @@ app.get('/api/scantypes', async (req, res) => {
   } catch (error) {
     console.error('[API] Error listing scan types:', error);
     res.status(500).json({ error: 'Failed to list scan types' });
+  }
+});
+
+// Endpoint pour récupérer les findings depuis MinIO
+app.get('/api/scans/:name/findings', async (req, res) => {
+  try {
+    const namespace = (req.query.namespace as string) || NAMESPACE;
+    const scanName = req.params.name;
+
+    // Récupérer le scan UID
+    const scanUid = await new Promise<string>((resolve, reject) => {
+      exec(`kubectl get scan ${scanName} -n ${namespace} -o jsonpath='{.metadata.uid}'`,
+        { timeout: 10000 },
+        (error, stdout) => {
+          if (error) reject(error);
+          else resolve(stdout.trim().replace(/'/g, ''));
+        }
+      );
+    });
+
+    // Lire les findings directement depuis MinIO via mc (MinIO Client)
+    const findingsCmd = `kubectl exec -n ${namespace} securecodebox-operator-minio-0 -- mc cat local/securecodebox/scan-${scanUid}/findings.json 2>/dev/null`;
+
+    exec(findingsCmd, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
+      if (error || !stdout.trim() || stdout.includes('<Error>')) {
+        console.error('[API] Could not read findings from MinIO:', error?.message || 'empty response');
+        res.json({ total: 0, findings: [], message: 'Findings not accessible - mc alias may need setup' });
+        return;
+      }
+
+      try {
+        const findings = JSON.parse(stdout.trim());
+        const total = Array.isArray(findings) ? findings.length : 0;
+
+        // Calculer les statistiques
+        const severities: Record<string, number> = {};
+        const categories: Record<string, number> = {};
+
+        if (Array.isArray(findings)) {
+          findings.forEach((f: any) => {
+            const sev = f.severity || 'informational';
+            const cat = f.category || 'Other';
+            severities[sev] = (severities[sev] || 0) + 1;
+            categories[cat] = (categories[cat] || 0) + 1;
+          });
+        }
+
+        res.json({ total, severities, categories, findings });
+      } catch (e) {
+        console.error('[API] Error parsing findings:', e);
+        res.json({ total: 0, findings: [], message: 'Failed to parse findings' });
+      }
+    });
+  } catch (error) {
+    console.error('[API] Error getting findings:', error);
+    res.status(500).json({ error: 'Failed to get findings' });
   }
 });
 

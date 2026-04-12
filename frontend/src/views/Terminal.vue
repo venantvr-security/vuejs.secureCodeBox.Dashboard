@@ -54,8 +54,7 @@ async function runCommand() {
         v-for="qc in quickCommands"
         :key="qc.label"
         :label="qc.label"
-        size="small"
-        outlined
+        severity="secondary"
         class="mr-2"
         @click="runQuickCommand(qc.cmd)"
       />

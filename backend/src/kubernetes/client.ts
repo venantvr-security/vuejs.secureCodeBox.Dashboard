@@ -6,18 +6,16 @@ const kc = new k8s.KubeConfig();
 // En développement: utiliser ~/.kube/config
 // En production (dans le cluster): utiliser le service account
 try {
-  kc.loadFromCluster();
-  console.log('[K8s] Loaded in-cluster configuration');
-} catch {
   kc.loadFromDefault();
-  console.log('[K8s] Loaded default kubeconfig');
+  console.log('[K8s] Loaded kubeconfig from default location');
+} catch (e) {
+  console.error('[K8s] Failed to load kubeconfig:', e);
 }
 
 // Clients API
 export const coreApi = kc.makeApiClient(k8s.CoreV1Api);
 export const appsApi = kc.makeApiClient(k8s.AppsV1Api);
 export const customApi = kc.makeApiClient(k8s.CustomObjectsApi);
-export const metricsApi = kc.makeApiClient(k8s.Metrics);
 
 // Configuration
 export const NAMESPACE = process.env.NAMESPACE || 'securecodebox';
