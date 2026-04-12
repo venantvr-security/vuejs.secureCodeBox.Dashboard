@@ -187,6 +187,43 @@ export const useConnectionStore = defineStore('connection', () => {
     connect()
   }
 
+  // Reconnexion complète : backend K8s + WebSocket
+  async function reconnectToCluster(): Promise<boolean> {
+    console.log('[Connection] Requesting backend cluster reconnect...')
+    status.value = 'connecting'
+    lastError.value = null
+
+    try {
+      // 1. Demander au backend de recharger sa connexion K8s
+      const response = await fetch(`${API_BASE}/api/cluster/reconnect`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(10000)
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.message || 'Échec de reconnexion backend')
+      }
+
+      // 2. Reconnecter le WebSocket
+      disconnect()
+      reconnectAttempts.value = 0
+
+      // 3. Attendre un peu puis reconnecter
+      await new Promise(resolve => setTimeout(resolve, 500))
+      connect()
+
+      console.log('[Connection] Cluster reconnect successful')
+      return true
+    } catch (e) {
+      const error = e as Error
+      console.error('[Connection] Cluster reconnect failed:', error.message)
+      lastError.value = error.message
+      status.value = 'error'
+      return false
+    }
+  }
+
   return {
     // State
     status,
@@ -203,6 +240,7 @@ export const useConnectionStore = defineStore('connection', () => {
     connect,
     disconnect,
     resetAndReconnect,
+    reconnectToCluster,
     checkHealth,
     checkClusterStatus
   }

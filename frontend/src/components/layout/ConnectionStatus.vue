@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useConnectionStore } from '@/stores/connectionStore'
 
 const connectionStore = useConnectionStore()
+const isReconnecting = ref(false)
 
 onMounted(() => {
   connectionStore.connect()
@@ -32,6 +33,15 @@ const getColor = () => {
     case 'danger': return 'text-red-500'
   }
 }
+
+const handleReconnect = async () => {
+  isReconnecting.value = true
+  try {
+    await connectionStore.reconnectToCluster()
+  } finally {
+    isReconnecting.value = false
+  }
+}
 </script>
 
 <template>
@@ -41,13 +51,14 @@ const getColor = () => {
       {{ connectionStore.statusMessage }}
     </span>
     <Button
-      v-if="connectionStore.hasError"
-      icon="pi pi-refresh"
+      :icon="isReconnecting ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'"
       text
       rounded
       size="small"
-      @click="connectionStore.resetAndReconnect()"
-      v-tooltip.bottom="'Reconnecter'"
+      :disabled="isReconnecting || connectionStore.isConnecting"
+      @click="handleReconnect"
+      v-tooltip.bottom="'Reconnecter au cluster'"
+      class="reconnect-btn"
     />
   </div>
 </template>
@@ -64,6 +75,15 @@ const getColor = () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.reconnect-btn {
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.reconnect-btn:hover:not(:disabled) {
+  opacity: 1;
 }
 
 @media (max-width: 768px) {

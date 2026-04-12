@@ -5,17 +5,46 @@ const kc = new k8s.KubeConfig();
 
 // En développement: utiliser ~/.kube/config
 // En production (dans le cluster): utiliser le service account
-try {
-  kc.loadFromDefault();
-  console.log('[K8s] Loaded kubeconfig from default location');
-} catch (e) {
-  console.error('[K8s] Failed to load kubeconfig:', e);
+function loadConfig() {
+  try {
+    kc.loadFromDefault();
+    console.log('[K8s] Loaded kubeconfig from default location');
+    return true;
+  } catch (e) {
+    console.error('[K8s] Failed to load kubeconfig:', e);
+    return false;
+  }
 }
 
-// Clients API
-export const coreApi = kc.makeApiClient(k8s.CoreV1Api);
-export const appsApi = kc.makeApiClient(k8s.AppsV1Api);
-export const customApi = kc.makeApiClient(k8s.CustomObjectsApi);
+// Chargement initial
+loadConfig();
+
+// Clients API (re-créés lors de la reconnexion)
+export let coreApi = kc.makeApiClient(k8s.CoreV1Api);
+export let appsApi = kc.makeApiClient(k8s.AppsV1Api);
+export let customApi = kc.makeApiClient(k8s.CustomObjectsApi);
+
+// Fonction de reconnexion au cluster
+export function reconnectCluster(): { success: boolean; message: string } {
+  try {
+    console.log('[K8s] Reloading kubeconfig...');
+
+    // Recharger la configuration
+    kc.loadFromDefault();
+
+    // Recréer les clients API
+    coreApi = kc.makeApiClient(k8s.CoreV1Api);
+    appsApi = kc.makeApiClient(k8s.AppsV1Api);
+    customApi = kc.makeApiClient(k8s.CustomObjectsApi);
+
+    console.log('[K8s] Successfully reconnected to cluster');
+    return { success: true, message: 'Reconnexion au cluster réussie' };
+  } catch (e) {
+    const error = e as Error;
+    console.error('[K8s] Failed to reconnect:', error.message);
+    return { success: false, message: `Échec de reconnexion: ${error.message}` };
+  }
+}
 
 // Configuration
 export const NAMESPACE = process.env.NAMESPACE || 'securecodebox';

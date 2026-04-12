@@ -13,13 +13,23 @@ export interface ScanInfo {
   duration: string
 }
 
+export interface ScanTemplate {
+  name: string
+  filename: string
+  scanType: string
+  uploadedAt: string
+  content: string
+}
+
 const API_BASE = import.meta.env.VITE_API_URL || ''
 const WS_BASE = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:8080`
 
 export const useScansStore = defineStore('scans', () => {
   const scans = ref<ScanInfo[]>([])
   const scanTypes = ref<string[]>([])
+  const templates = ref<ScanTemplate[]>([])
   const loading = ref(false)
+  const templatesLoading = ref(false)
   const error = ref<string | null>(null)
   let ws: WebSocket | null = null
 
@@ -152,21 +162,98 @@ export const useScansStore = defineStore('scans', () => {
     }
   }
 
+  // ============================================================================
+  // TEMPLATES
+  // ============================================================================
+
+  async function fetchTemplates() {
+    templatesLoading.value = true
+    try {
+      const response = await fetch(`${API_BASE}/api/scan-templates`)
+      if (!response.ok) throw new Error('Failed to fetch templates')
+      templates.value = await response.json()
+    } catch (e) {
+      console.error('[ScansStore] Error fetching templates:', e)
+    } finally {
+      templatesLoading.value = false
+    }
+  }
+
+  async function uploadTemplate(filename: string, content: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE}/api/scan-templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, content })
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to upload template')
+      }
+      await fetchTemplates()
+      return true
+    } catch (e) {
+      console.error('[ScansStore] Error uploading template:', e)
+      throw e
+    }
+  }
+
+  async function applyTemplate(filename: string): Promise<{ success: boolean; output?: string; error?: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/api/scan-templates/${filename}/apply`, {
+        method: 'POST'
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        return { success: false, error: data.error }
+      }
+      await fetchScans() // Rafraîchir la liste des scans
+      return { success: true, output: data.output }
+    } catch (e) {
+      console.error('[ScansStore] Error applying template:', e)
+      return { success: false, error: (e as Error).message }
+    }
+  }
+
+  async function deleteTemplate(filename: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE}/api/scan-templates/${filename}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) throw new Error('Failed to delete template')
+      templates.value = templates.value.filter(t => t.filename !== filename)
+      return true
+    } catch (e) {
+      console.error('[ScansStore] Error deleting template:', e)
+      return false
+    }
+  }
+
   return {
+    // State
     scans,
     scanTypes,
+    templates,
     loading,
+    templatesLoading,
     error,
+    // Getters
     runningScans,
     completedScans,
     failedScans,
     pendingScans,
+    // Actions - Scans
     fetchScans,
     fetchScanTypes,
     getScan,
     createScan,
     deleteScan,
     connectWebSocket,
-    disconnectWebSocket
+    disconnectWebSocket,
+    // Actions - Templates
+    fetchTemplates,
+    uploadTemplate,
+    applyTemplate,
+    deleteTemplate
   }
 })

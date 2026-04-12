@@ -6,6 +6,9 @@ import { useToast } from 'primevue/usetoast'
 const scansStore = useScansStore()
 const toast = useToast()
 const showNewScanDialog = ref(false)
+const showUploadDialog = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+const applyingTemplate = ref<string | null>(null)
 
 // Formulaire nouveau scan
 const newScan = ref({
@@ -18,6 +21,7 @@ const newScan = ref({
 onMounted(() => {
   scansStore.fetchScans()
   scansStore.fetchScanTypes()
+  scansStore.fetchTemplates()
   scansStore.connectWebSocket()
 })
 
@@ -89,6 +93,94 @@ async function handleCreateScan() {
       life: 3000
     })
   }
+}
+
+// ============================================================================
+// TEMPLATES
+// ============================================================================
+
+function triggerFileUpload() {
+  fileInput.value?.click()
+}
+
+async function handleFileUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  try {
+    const content = await file.text()
+    await scansStore.uploadTemplate(file.name, content)
+    toast.add({
+      severity: 'success',
+      summary: 'Template uploadé',
+      detail: `${file.name} a été ajouté`,
+      life: 3000
+    })
+  } catch (e) {
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: (e as Error).message,
+      life: 5000
+    })
+  }
+
+  // Reset input
+  input.value = ''
+}
+
+async function handleApplyTemplate(filename: string) {
+  applyingTemplate.value = filename
+  const result = await scansStore.applyTemplate(filename)
+  applyingTemplate.value = null
+
+  if (result.success) {
+    toast.add({
+      severity: 'success',
+      summary: 'Scan lancé',
+      detail: result.output || 'Template appliqué avec succès',
+      life: 3000
+    })
+  } else {
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: result.error || 'Impossible d\'appliquer le template',
+      life: 5000
+    })
+  }
+}
+
+async function handleDeleteTemplate(filename: string) {
+  if (confirm(`Supprimer le template "${filename}" ?`)) {
+    const success = await scansStore.deleteTemplate(filename)
+    if (success) {
+      toast.add({
+        severity: 'success',
+        summary: 'Template supprimé',
+        detail: `${filename} a été supprimé`,
+        life: 3000
+      })
+    } else {
+      toast.add({
+        severity: 'error',
+        summary: 'Erreur',
+        detail: 'Impossible de supprimer le template',
+        life: 3000
+      })
+    }
+  }
+}
+
+function formatDate(isoString: string): string {
+  return new Date(isoString).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 </script>
 
@@ -175,6 +267,85 @@ async function handleCreateScan() {
         </template>
       </Card>
     </div>
+
+    <!-- Templates Section -->
+    <Card class="mb-4">
+      <template #title>
+        <div class="flex align-items-center justify-content-between">
+          <span>
+            <i class="pi pi-file mr-2"></i>
+            Templates de scan
+          </span>
+          <div class="flex gap-2">
+            <Button
+              icon="pi pi-refresh"
+              text
+              rounded
+              size="small"
+              @click="scansStore.fetchTemplates"
+              :loading="scansStore.templatesLoading"
+              v-tooltip.top="'Rafraîchir'"
+            />
+            <Button
+              icon="pi pi-upload"
+              label="Uploader"
+              size="small"
+              @click="triggerFileUpload"
+            />
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".yaml,.yml"
+              class="hidden"
+              @change="handleFileUpload"
+            />
+          </div>
+        </div>
+      </template>
+      <template #content>
+        <div v-if="scansStore.templates.length === 0" class="text-center text-color-secondary py-4">
+          <i class="pi pi-inbox text-4xl mb-3" style="display: block;"></i>
+          <p>Aucun template uploadé</p>
+          <p class="text-sm">Uploadez un fichier YAML de scan pour commencer</p>
+        </div>
+        <div v-else class="templates-grid">
+          <div
+            v-for="template in scansStore.templates"
+            :key="template.filename"
+            class="template-card surface-card border-round border-1 surface-border p-3"
+          >
+            <div class="flex align-items-start justify-content-between mb-2">
+              <div>
+                <div class="font-semibold text-lg">{{ template.name }}</div>
+                <div class="text-sm text-color-secondary">{{ template.filename }}</div>
+              </div>
+              <Tag :value="template.scanType" severity="info" />
+            </div>
+            <div class="text-sm text-color-secondary mb-3">
+              <i class="pi pi-clock mr-1"></i>
+              {{ formatDate(template.uploadedAt) }}
+            </div>
+            <div class="flex gap-2">
+              <Button
+                icon="pi pi-play"
+                label="Lancer"
+                size="small"
+                @click="handleApplyTemplate(template.filename)"
+                :loading="applyingTemplate === template.filename"
+              />
+              <Button
+                icon="pi pi-trash"
+                size="small"
+                severity="danger"
+                text
+                @click="handleDeleteTemplate(template.filename)"
+                v-tooltip.top="'Supprimer'"
+              />
+            </div>
+          </div>
+        </div>
+      </template>
+    </Card>
 
     <!-- Table -->
     <Card>
@@ -311,3 +482,23 @@ async function handleCreateScan() {
     </Dialog>
   </div>
 </template>
+
+<style scoped>
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.template-card {
+  transition: box-shadow 0.2s;
+}
+
+.template-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.hidden {
+  display: none;
+}
+</style>

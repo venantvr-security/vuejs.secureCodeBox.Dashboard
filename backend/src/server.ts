@@ -3,18 +3,28 @@ import cors from 'cors';
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
 import { exec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import { listPods, getPod, getPodMetrics, getAllPodMetrics, getPodLogs, deletePod } from './kubernetes/pods';
 import { listScans, getScan, createScan, deleteScan, listScanTypes } from './kubernetes/scans';
 import { listEvents } from './kubernetes/events';
 import { runDiagnostic, getNetworkInfo } from './system/diagnostic';
-import { NAMESPACE } from './kubernetes/client';
+import { NAMESPACE, reconnectCluster } from './kubernetes/client';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// Répertoire des templates de scan (dans le projet dashboard)
+const SCAN_TEMPLATES_DIR = path.join(__dirname, '..', 'scan-templates');
+
+// Créer le répertoire s'il n'existe pas
+if (!fs.existsSync(SCAN_TEMPLATES_DIR)) {
+  fs.mkdirSync(SCAN_TEMPLATES_DIR, { recursive: true });
+}
+
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' })); // Limite pour upload YAML
 
 // ============================================================================
 // REST API - PODS
@@ -127,6 +137,17 @@ app.get('/api/cluster/status', async (req, res) => {
   } catch (error) {
     console.error('[API] Error getting cluster status:', error);
     res.status(500).json({ error: 'Failed to get cluster status' });
+  }
+});
+
+// Reconnexion au cluster K8s (recharge kubeconfig)
+app.post('/api/cluster/reconnect', (req, res) => {
+  console.log('[API] Cluster reconnect requested');
+  const result = reconnectCluster();
+  if (result.success) {
+    res.json(result);
+  } else {
+    res.status(500).json(result);
   }
 });
 
@@ -269,6 +290,145 @@ app.get('/api/scans/:name/findings', async (req, res) => {
   } catch (error) {
     console.error('[API] Error getting findings:', error);
     res.status(500).json({ error: 'Failed to get findings' });
+  }
+});
+
+// ============================================================================
+// REST API - SCAN TEMPLATES (upload uniquement, pas de couplage externe)
+// ============================================================================
+
+interface ScanTemplate {
+  name: string;
+  filename: string;
+  scanType: string;
+  uploadedAt: string;
+  content: string;
+}
+
+// Lister les templates uploadés
+app.get('/api/scan-templates', (req, res) => {
+  try {
+    const files = fs.readdirSync(SCAN_TEMPLATES_DIR).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
+    const templates: ScanTemplate[] = files.map(filename => {
+      const filepath = path.join(SCAN_TEMPLATES_DIR, filename);
+      const content = fs.readFileSync(filepath, 'utf-8');
+      const stats = fs.statSync(filepath);
+
+      // Extraire le nom et scanType du YAML
+      const nameMatch = content.match(/^\s*name:\s*["']?([^"'\n]+)["']?/m);
+      const typeMatch = content.match(/^\s*scanType:\s*["']?([^"'\n]+)["']?/m);
+
+      return {
+        name: nameMatch?.[1] || filename.replace(/\.ya?ml$/, ''),
+        filename,
+        scanType: typeMatch?.[1] || 'unknown',
+        uploadedAt: stats.mtime.toISOString(),
+        content
+      };
+    });
+
+    res.json(templates);
+  } catch (error) {
+    console.error('[API] Error listing scan templates:', error);
+    res.status(500).json({ error: 'Failed to list scan templates' });
+  }
+});
+
+// Récupérer un template
+app.get('/api/scan-templates/:name', (req, res) => {
+  try {
+    const filename = req.params.name.endsWith('.yaml') ? req.params.name : `${req.params.name}.yaml`;
+    const filepath = path.join(SCAN_TEMPLATES_DIR, filename);
+
+    if (!fs.existsSync(filepath)) {
+      res.status(404).json({ error: 'Template not found' });
+      return;
+    }
+
+    const content = fs.readFileSync(filepath, 'utf-8');
+    res.json({ filename, content });
+  } catch (error) {
+    console.error('[API] Error getting scan template:', error);
+    res.status(500).json({ error: 'Failed to get scan template' });
+  }
+});
+
+// Uploader un template
+app.post('/api/scan-templates', (req, res) => {
+  try {
+    const { filename, content } = req.body;
+
+    if (!filename || !content) {
+      res.status(400).json({ error: 'filename and content are required' });
+      return;
+    }
+
+    // Vérifier que c'est un YAML valide (basique)
+    if (!content.includes('apiVersion:') || !content.includes('kind:')) {
+      res.status(400).json({ error: 'Invalid Kubernetes YAML format' });
+      return;
+    }
+
+    const safeFilename = filename.replace(/[^a-zA-Z0-9_.-]/g, '-');
+    const finalFilename = safeFilename.endsWith('.yaml') || safeFilename.endsWith('.yml')
+      ? safeFilename
+      : `${safeFilename}.yaml`;
+
+    const filepath = path.join(SCAN_TEMPLATES_DIR, finalFilename);
+    fs.writeFileSync(filepath, content, 'utf-8');
+
+    console.log(`[API] Template uploaded: ${finalFilename}`);
+    res.status(201).json({ success: true, filename: finalFilename });
+  } catch (error) {
+    console.error('[API] Error uploading scan template:', error);
+    res.status(500).json({ error: 'Failed to upload scan template' });
+  }
+});
+
+// Appliquer un template (kubectl apply)
+app.post('/api/scan-templates/:name/apply', (req, res) => {
+  try {
+    const filename = req.params.name.endsWith('.yaml') ? req.params.name : `${req.params.name}.yaml`;
+    const filepath = path.join(SCAN_TEMPLATES_DIR, filename);
+
+    if (!fs.existsSync(filepath)) {
+      res.status(404).json({ error: 'Template not found' });
+      return;
+    }
+
+    exec(`kubectl apply -f "${filepath}"`, { timeout: 30000 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('[API] kubectl apply failed:', stderr);
+        res.status(500).json({ error: `Failed to apply template: ${stderr}` });
+        return;
+      }
+
+      console.log(`[API] Template applied: ${filename}`);
+      res.json({ success: true, output: stdout.trim() });
+    });
+  } catch (error) {
+    console.error('[API] Error applying scan template:', error);
+    res.status(500).json({ error: 'Failed to apply scan template' });
+  }
+});
+
+// Supprimer un template
+app.delete('/api/scan-templates/:name', (req, res) => {
+  try {
+    const filename = req.params.name.endsWith('.yaml') ? req.params.name : `${req.params.name}.yaml`;
+    const filepath = path.join(SCAN_TEMPLATES_DIR, filename);
+
+    if (!fs.existsSync(filepath)) {
+      res.status(404).json({ error: 'Template not found' });
+      return;
+    }
+
+    fs.unlinkSync(filepath);
+    console.log(`[API] Template deleted: ${filename}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Error deleting scan template:', error);
+    res.status(500).json({ error: 'Failed to delete scan template' });
   }
 });
 
