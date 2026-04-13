@@ -2,11 +2,20 @@
   "hooks": {
     "PreCompact": [
       {
-        "matcher": "auto|manual",
+        "matcher": "auto",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/save-transcript.sh"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/save-transcript.py"
+          }
+        ]
+      },
+      {
+        "matcher": "manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/save-transcript.py"
           }
         ]
       }
