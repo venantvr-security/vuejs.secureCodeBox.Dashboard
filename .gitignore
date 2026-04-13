@@ -27,3 +27,4 @@ Thumbs.db
 
 # Lock files (optionnel)
 package-lock.json
+backend/data/
